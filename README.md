@@ -40,6 +40,9 @@ Expected output:
 }
 ```
 
+## Docker container
+The container that is deployed in the workers is build with the files that are in the folder ```container``` and published to http://cloud.docker.com/ from where is picked by the swarm to run it on the workers.
+
 ## Technologies
 * Ansible
 * Vagrant
