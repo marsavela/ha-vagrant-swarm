@@ -13,7 +13,7 @@ Swarm uses [Raft Consensus Algortihm](http://thesecretlivesofdata.com/raft/) to 
 
 ## Deployment
 ```bash
-ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -i inventory deploy.yml
+ansible-playbook -i inventory deploy.yml
 ```
 
 ## Destroy(ment)
