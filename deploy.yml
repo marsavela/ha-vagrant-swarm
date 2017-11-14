@@ -1,0 +1,59 @@
+---
+- hosts: localhost
+  gather_facts: no
+  tasks:
+  - name: Spin up VMs
+    command: vagrant up
+
+- hosts: workers:managers
+  gather_facts: no
+  become: yes
+  tasks:
+  - name: Add docker apt keys
+    command: bash -c "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -"
+  - name: Get version
+    command: lsb_release -cs
+    register: lsb_release
+  - name: Update apt
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{lsb_release.stdout}} stable
+      state: present
+  - name: Install Docker
+    apt:
+      name: docker-ce
+      state: latest
+  - name: "Build hosts file"
+    lineinfile:
+      dest: /etc/hosts
+      line: "{{ hostvars[item].ansible_host }} {{ hostvars[item].inventory_hostname }} {{ hostvars[item].inventory_hostname_short }}"
+      # regexp: ".*{{ item }}$"
+      # line: "{{ hostvars[item].ansible_host }} {{item}}"
+      state: present
+    with_items: "{{ ansible_play_hosts }}"
+
+- hosts: managers
+  become: yes
+  tasks:
+  - name: Initiate swarm cluster
+    shell: /usr/bin/docker swarm init --advertise-addr "{{ ansible_eth1.ipv4.address }}"
+    ignore_errors: true
+
+  - name: Get cluster token
+    shell: docker swarm join-token -q worker
+    register: token
+
+  - name: save cluster token
+    set_fact: token="{{ token.stdout }}"
+
+- hosts: workers
+  become: yes
+  tasks:
+  - name: Join swarm cluster
+    shell: /usr/bin/docker swarm join --token "{{ hostvars[groups['managers'][0]]['token'] }}" --listen-addr "{{ ansible_eth1.ipv4.address }}":2377 192.168.10.2:2377
+    ignore_errors: true
+
+- hosts: managers
+  become: yes
+  tasks:
+  - name: Deploy containers
+    shell: /usr/bin/docker stack deploy -c /vagrant/docker-compose.yml timestamps
